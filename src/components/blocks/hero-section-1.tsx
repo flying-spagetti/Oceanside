@@ -106,7 +106,7 @@ export function HeroSection() {
                                     <Link
                                         href="#link"
                                         className="hover:bg-background/20 dark:hover:border-t-border bg-background/10 group mx-auto flex w-fit items-center gap-4 rounded-full border p-1 pl-4 shadow-md shadow-black/5 transition-all duration-300 dark:border-t-white/5 dark:shadow-zinc-950">
-                                        <span className="text-gray-200 text-sm font-medium">Introducing Support for AI Models</span>
+                                        <span className="text-gray-200 text-sm font-medium">Introducing Oceanside - Your All-in-One Recording Studio</span>
                                         <span className="dark:border-background block h-4 w-0.5 border-l bg-white dark:bg-zinc-700"></span>
 
                                         <div className="bg-background group-hover:bg-muted size-6 overflow-hidden rounded-full duration-500">
@@ -123,11 +123,11 @@ export function HeroSection() {
                         
                                     <h1
                                         className="mt-8 max-w-4xl mx-auto text-balance text-6xl md:text-7xl lg:mt-16 xl:text-[5.25rem] font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">
-                                        Modern Solutions for Customer Engagement
+                                        Record, Edit, and Share Your Content with Ease
                                     </h1>
                                     <p
                                         className="mx-auto mt-8 max-w-2xl text-balance text-lg font-medium text-gray-300">
-                                        Highly customizable components for building modern websites and applications that look and feel the way you mean it.
+                                        Create professional-quality recordings with our intuitive platform. Perfect for podcasts, interviews, and content creators.
                                     </p>
                                 </AnimatedGroup>
 
@@ -144,8 +144,8 @@ export function HeroSection() {
                                             asChild
                                             size="lg"
                                             className="rounded-xl px-5 text-base bg-white text-gray-900 hover:bg-gray-100">
-                                            <Link href="#link">
-                                                <span className="text-nowrap">Start Building</span>
+                                            <Link href="/room">
+                                                <span className="text-nowrap">Start Recording</span>
                                             </Link>
                                         </Button>
                                     </div>
@@ -155,8 +155,8 @@ export function HeroSection() {
                                         size="lg"
                                         variant="ghost"
                                         className="h-10.5 rounded-xl px-5 text-gray-200 hover:text-white hover:bg-gray-800">
-                                        <Link href="#link">
-                                            <span className="text-nowrap">Request a demo</span>
+                                        <Link href="#features">
+                                            <span className="text-nowrap">Learn More</span>
                                         </Link>
                                     </Button>
                                 </AnimatedGroup>
@@ -204,7 +204,7 @@ export function HeroSection() {
                                 <ChevronRight className="ml-1 inline-block size-3" />
                             </Link>
                         </div>
-                        <div className="group-hover:blur-xs mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-12 gap-y-8 transition-all duration-500 group-hover:opacity-50 sm:gap-x-16 sm:gap-y-14">
+                        <div className="group-hover:blur-xs mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-12 gap-y-8 transition-all duration-500 group-hover:opacity-10 sm:gap-x-16 sm:gap-y-14">
                             <div className="flex">
                                 <img
                                     className="mx-auto h-5 w-fit dark:invert"
