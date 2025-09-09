@@ -44,19 +44,18 @@ setInterval(() => {
 
 io.on("connection", (socket) => {
   console.log('Client connected:', socket.id);
+  let currentRoomId: string | null = null;
 
   socket.on("join-room", ({ roomId, role }: { roomId: string; role: 'host' | 'member' }) => {
     // Validate room ID format
     if (!roomId || typeof roomId !== 'string' || roomId.length < 3) {
-      socket.emit('error', { message: 'Invalid room ID' });
-      return;
+      return socket.emit('error', { message: 'Invalid room ID' });
     }
 
     // Check if room exists
     if (!rooms[roomId]) {
       if (role === 'member') {
-        socket.emit('error', { message: 'Room does not exist' });
-        return;
+        return socket.emit('error', { message: 'Room does not exist' });
       }
       // Create new room if host
       rooms[roomId] = {
@@ -66,17 +65,11 @@ io.on("connection", (socket) => {
         lastActivity: Date.now(),
         hostId: socket.id
       };
+      console.log(`Room ${roomId} created by host ${socket.id}`);
     } else {
-      // Check if room is full (max 2 participants)
-      if (rooms[roomId].participants.size >= 2) {
-        socket.emit('error', { message: 'Room is full' });
-        return;
-      }
-
       // If joining as host but room already has a host
       if (role === 'host' && rooms[roomId].hostId) {
-        socket.emit('error', { message: 'Room already has a host' });
-        return;
+        return socket.emit('error', { message: 'Room already has a host' });
       }
     }
 
@@ -87,6 +80,7 @@ io.on("connection", (socket) => {
       joinedAt: Date.now()
     });
     rooms[roomId].lastActivity = Date.now();
+    currentRoomId = roomId; // Keep track of the user's room
 
     // If joining as host, set as host
     if (role === 'host') {
@@ -96,79 +90,83 @@ io.on("connection", (socket) => {
     socket.join(roomId);
 
     // Notify all participants in the room about the new participant
-    io.to(roomId).emit('participant-joined', {
+    // Important for existing clients to initiate connections with the new one
+    socket.to(roomId).emit('participant-joined', {
       participantId: socket.id,
       role,
-      participants: Array.from(rooms[roomId].participants.values())
     });
 
-    // Send room info to the new participant
+    // Send full participant list to the new participant
     socket.emit('room-joined', {
       roomId,
       role,
       participants: Array.from(rooms[roomId].participants.values())
     });
 
-    console.log(`Room ${roomId} now has ${rooms[roomId].participants.size} clients`);
+    console.log(`Client ${socket.id} joined room ${roomId}. Room now has ${rooms[roomId].participants.size} clients.`);
+  });
 
-    // Handle signaling
-    socket.on("signal", ({ roomId: signalRoomId, data }) => {
-      try {
-        // Validate that the sender is in the room
-        if (!rooms[signalRoomId]?.participants.has(socket.id)) {
-          socket.emit('error', { message: 'Not authorized to send signals to this room' });
-          return;
-        }
-
-        // Validate signal data
-        if (!data) {
-          socket.emit('error', { message: 'Invalid signal data' });
-          return;
-        }
-
-        console.log(`Signal from ${socket.id} in room ${signalRoomId}:`, data.type || 'ICE candidate');
-        
-        // Send signal to all other participants in the room
-        socket.to(signalRoomId).emit("signal", { 
-          data,
-          from: socket.id
-        });
-      } catch (error) {
-        console.error('Error handling signal:', error);
-        socket.emit('error', { message: 'Error processing signal' });
+  // Handle signaling - now targeted
+  socket.on("signal", ({ target, data }) => {
+    try {
+      if (!target || !data) {
+        return socket.emit('error', { message: 'Invalid signal payload' });
       }
-    });
+      // Relay signal to the specific target client
+      io.to(target).emit("signal", {
+        from: socket.id,
+        data,
+      });
+      // console.log(`Relayed signal from ${socket.id} to ${target}`); // A bit too noisy for production
+    } catch (error) {
+      console.error('Error handling signal:', error);
+      socket.emit('error', { message: 'Error processing signal' });
+    }
+  });
 
-    // Handle disconnection
-    socket.on("disconnect", () => {
-      console.log(`Client ${socket.id} disconnected from room ${roomId}`);
+  socket.on("mute-status-changed", ({ isMuted }: { isMuted: boolean }) => {
+    if (currentRoomId && rooms[currentRoomId]) {
+        const participant = rooms[currentRoomId].participants.get(socket.id);
+        if (participant) {
+            participant.isMuted = isMuted;
+            socket.to(currentRoomId).emit("mute-status-changed", {
+                participantId: socket.id,
+                isMuted: isMuted,
+            });
+        }
+    }
+  });
+
+  // Handle disconnection
+  socket.on("disconnect", () => {
+    console.log(`Client ${socket.id} disconnected.`);
+    if (currentRoomId && rooms[currentRoomId]) {
+      const roomId = currentRoomId;
+      const participant = rooms[roomId].participants.get(socket.id);
+      rooms[roomId].participants.delete(socket.id);
+
+      // If host disconnects, assign new host or close room
+      if (participant?.role === 'host') {
+        const remainingParticipants = Array.from(rooms[roomId].participants.values());
+        if (remainingParticipants.length > 0) {
+          const newHost = remainingParticipants.sort((a, b) => a.joinedAt - b.joinedAt)[0]; // Oldest member becomes host
+          rooms[roomId].hostId = newHost.id;
+          io.to(roomId).emit('host-changed', { newHostId: newHost.id });
+          console.log(`Host ${socket.id} disconnected. New host is ${newHost.id}`);
+        } else {
+          console.log(`Room ${roomId} is empty, removing.`);
+          delete rooms[roomId];
+        }
+      }
+
+      // Notify remaining participants
       if (rooms[roomId]) {
-        const participant = rooms[roomId].participants.get(socket.id);
-        rooms[roomId].participants.delete(socket.id);
-
-        // If host disconnects, assign new host or close room
-        if (participant?.role === 'host') {
-          const remainingParticipants = Array.from(rooms[roomId].participants.values());
-          if (remainingParticipants.length > 0) {
-            // Assign first remaining participant as host
-            const newHost = remainingParticipants[0];
-            rooms[roomId].hostId = newHost.id;
-            io.to(roomId).emit('host-changed', { newHostId: newHost.id });
-          } else {
-            // No participants left, remove room
-            delete rooms[roomId];
-          }
-        }
-
-        // Notify remaining participants
-        if (rooms[roomId]) {
-          io.to(roomId).emit('participant-left', {
-            participantId: socket.id,
-            participants: Array.from(rooms[roomId].participants.values())
-          });
-        }
+        io.to(roomId).emit('participant-left', {
+          participantId: socket.id,
+        });
+        console.log(`Notified room ${roomId} of participant ${socket.id} leaving.`);
       }
-    });
+    }
   });
 });
 
